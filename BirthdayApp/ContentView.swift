@@ -11,50 +11,83 @@ import SwiftData
 struct ContentView: View {
     @Query private var friends: [Friend]
     @Environment(\.modelContext) private var context
-//    @State private var friends: [Friend] = [
-//        Friend(name: "Jolin", birthday: .now),
-//        Friend(name: "fluffy", birthday: .now)
-//    ]
+
     @State private var newName = ""
     @State private var newBirthday = Date.now
-    var body: some View {
-        List(friends, id: \.name){ friend in
-            HStack{
-                Text(friend.name)
-                Spacer()
-                Text(friend.birthday, format: Date.FormatStyle().month(.wide).day().year())
+    @State private var editingFriend: Friend? = nil
 
-            }
-        }
-        .navigationTitle("Birthdays")
-        .safeAreaInset(edge: .bottom){
-            VStack(alignment: .center, spacing: 20){
-                Text("New Birthday")
-                    .font(.headline)
-                DatePicker(selection: $newBirthday, in: Date.distantPast...Date.now, displayedComponents: .date) {
-                   
-                        TextField("Name", text: $newName)
-                            .textFieldStyle(.roundedBorder)
+    var body: some View {
+        NavigationView {
+            VStack {
+                List {
+                    ForEach(friends) { friend in
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(friend.name)
+                                Text(friend.birthday, format: .dateTime.month(.wide).day().year())
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
+                            Spacer()
+                            Button("Edit") {
+                                editingFriend = friend
+                                newName = friend.name
+                                newBirthday = friend.birthday
+                            }
+                            .buttonStyle(.bordered)
+                        }
                     }
-                    Button("Save"){
-                        let newFriend = Friend(name: newName, birthday: newBirthday)
-                        context.insert(newFriend)
+                    .onDelete(perform: deleteFriend)
+                }
+                .navigationTitle("Birthdays")
+
+                Divider()
+
+                VStack(spacing: 12) {
+                    Text(editingFriend == nil ? "Add New Birthday" : "Update Birthday")
+                        .font(.headline)
+
+                    TextField("Name", text: $newName)
+                        .textFieldStyle(.roundedBorder)
+                        .padding(.horizontal)
+
+                    DatePicker("Birthday", selection: $newBirthday, in: ...Date(), displayedComponents: .date)
+                        .datePickerStyle(.compact)
+                        .padding(.horizontal)
+
+                    Button(editingFriend == nil ? "Save" : "Update") {
+                        if let friend = editingFriend {
+                            // Update mode
+                            friend.name = newName
+                            friend.birthday = newBirthday
+                            editingFriend = nil
+                        } else {
+                            // Create mode
+                            let newFriend = Friend(name: newName, birthday: newBirthday)
+                            context.insert(newFriend)
+                        }
+
                         newName = ""
                         newBirthday = .now
-                        
                     }
                     .bold()
-                    
-            }
+                    .padding(.bottom)
+                }
                 .padding()
                 .background(.bar)
+            }
         }
     }
 
-
+    func deleteFriend(at offsets: IndexSet) {
+        for index in offsets {
+            let friendToDelete = friends[index]
+            context.delete(friendToDelete)
+        }
+    }
 }
 
-    #Preview {
-        ContentView()
-            .modelContainer(for: Friend.self)
-    }
+#Preview {
+    ContentView()
+        .modelContainer(for: Friend.self)
+}
